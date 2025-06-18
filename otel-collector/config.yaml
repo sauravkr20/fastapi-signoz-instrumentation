@@ -1,0 +1,71 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  filelog/app-logs:
+    include: 
+      - /app_logs/application.log
+    start_at: "beginning"
+    operators:
+      - type: json_parser
+        parse_from: body
+        timestamp:
+          parse_from: attributes.timestamp
+          layout: "2006-01-02T15:04:05.000Z"
+          layout_type: gotime
+
+processors:
+  batch:
+    send_batch_size: 5000
+    send_batch_max_size: 11000
+    timeout: 1s
+
+  resource:
+    attributes:
+      - key: service.namespace
+        value: "fastapi-otel-template"
+        action: upsert
+      - key: service.name
+        value: "fastapi-otel-template"
+        action: upsert
+      - key: deployment.environment
+        value: "local"
+        action: upsert
+      - key: host.name
+        value: "local"
+        action: upsert
+
+exporters:
+  otlp/signoz-logs:
+    endpoint: "${env:OTEL_EXPORTER_URL}"
+    tls:
+      insecure: true
+    headers:
+      authorization: "Bearer aNT16xR8CkhPdOtxhdhROlMewO8OpwVCbT3hrhqaSY"
+    sending_queue:
+      enabled: true
+      num_consumers: 10
+      queue_size: 10000
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 30s
+    compression: gzip
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [otlp/signoz-logs]
+    metrics:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [otlp/signoz-logs]
+    logs/app:
+      receivers: [filelog/app-logs]
+      processors: [batch, resource]
+      exporters: [otlp/signoz-logs]

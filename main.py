@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from models import MsgPayload
+from config.config import APP_NAME
 
-app = FastAPI()
+app = FastAPI(title=APP_NAME)
 messages_list: dict[int, MsgPayload] = {}
 
 
